@@ -6,6 +6,10 @@ oscilloscope running the stock firmware.
 ![Screenshot](./screenshot.png)
 <div style="text-align: center;"><em>Sample capture from an IR remote control receiver</em></div>
 
+Yellow/Orange line is the signal, purple dashed line is the trigger level.
+You can zoom in and move around. The entire captured dataset is viewed in one window unlike on
+the devices's display.
+
 ## Usage
 
 ```bash
