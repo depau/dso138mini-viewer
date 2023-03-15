@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import matplotlib
+import os
 import sys
 from collections import namedtuple
 from queue import Queue, Empty
 from threading import Thread
 
-import matplotlib
-
 try:
-    matplotlib.use("Qt5agg")
+    backend = os.environ.get("MPL_BACKEND", "Qt5agg")
+    matplotlib.use(backend)
+    print(f"Using {backend}")
 except ImportError:
+    print("Using default backend")
     pass
 
 # noinspection PyProtectedMember
@@ -62,8 +65,13 @@ def graph_loop():
             except Empty:
                 mpl_pause_nostealfocus(0.2)
                 continue
-            print("Plotting")
-            graph(*args)
+            settings, raw_settings, samples = args
+
+            print(f"Plotting {len(samples)} samples")
+            for k, v in settings.items():
+                print(f"{k}:\t{v}")
+
+            graph(settings, raw_settings, samples)
             print("Plot completed")
     except KeyboardInterrupt:
         plt.close('all')
@@ -74,20 +82,25 @@ def graph(settings: dict, raw_settings: dict, samples: list):
         del fig.texts[0]
     plt.cla()
 
+    scaled_timebase = settings["ScaledTimebase"]
+    unit = settings["TimebaseUnit"]
+    divider = 1000 if unit == "ms" else 1
+
     fig.canvas.manager.set_window_title("Plot")
-    ax.set_xlabel("μs")
+    ax.set_xlabel(unit)
     ax.set_ylabel("Volt")
     plt.subplots_adjust(left=0.1)
-    ax.axis([0, samples[-1].time, -4 * settings["VSen"] - settings["VPos"], 4 * settings["VSen"] - settings["VPos"]])
-    ax.xaxis.set_minor_locator(MultipleLocator(settings["Timebase"]))
+    ax.axis([0, samples[-1].time / divider, -4 * settings["VSen"] - settings["VPos"], 4 * settings["VSen"] - settings["VPos"]])
+    ax.xaxis.set_minor_locator(MultipleLocator(scaled_timebase))
     ax.yaxis.set_major_locator(MultipleLocator(settings["VSen"]))
     ax.grid(True, which="both")
     ax.plot([0, samples[-1].time], [settings["TriggerLevel"]] * 2, ':', color="purple")
 
-    values = tuple(zip(*samples))[1:3]
-    ax.plot(*values, color="orange")
+    times, volts = tuple(zip(*samples))[1:3]
+    times = tuple(map(lambda x: x / divider, times))
+    ax.plot(times, volts, color="orange")
     ax.set_title(f"{raw_settings.get('VSen', '')}  {raw_settings.get('Couple', '')}  "
-                 f"{raw_settings.get('Timebase', '')}  {raw_settings.get('TriggerMode', '')}  "
+                 f"{raw_settings.get('Timebase', '').replace('u', 'µ')}  {raw_settings.get('TriggerMode', '')}  "
                  f"{raw_settings.get('TriggerSlope')}  {raw_settings.get('TriggerLevel', '')}")
 
     fig_txt = ""
@@ -149,11 +162,17 @@ def mainloop(serport: str):
                 continue
             if setting == "Timebase":
                 timebase = float(value.replace("m", "").replace("u", "").replace("s", ""))
+                scaled_timebase = timebase
+                unit = "s"
                 if value.endswith("ms"):
                     timebase /= 1000
+                    unit = "ms"
                 elif value.endswith("us"):
                     timebase /= 1000000
+                    unit = "µs"
                 settings[setting] = timebase
+                settings["ScaledTimebase"] = scaled_timebase
+                settings["TimebaseUnit"] = unit
             else:
                 value = float(value.replace("V", ""))
                 settings[setting] = value
