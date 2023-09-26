@@ -1,4 +1,4 @@
-# DSO138 / DSO138mini serial data viewer
+# DSO138mini serial data viewer
 
 Simple script to retrieve and view waveform data from a DSO138 portable 
 oscilloscope running the stock firmware.
